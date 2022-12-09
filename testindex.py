@@ -1,9 +1,18 @@
 import pandas as pd
+from pyspark.sql import SparkSession
 import re
+from operator import add
 
-data=set()
+def f(inp):
+    linecount,line = inp
+    data = []
+    if dictionaryPattern.findall(line):
+        language = re.search("[A-Z][a-z]+ ?[A-Z]?[a-z]*",line).group()
+        titles = re.findall("(?<=\|[a-z]{2}\|)[^{},|]+(?=[\|}])",line, re.DOTALL)
+        for title in titles:
+            data.append((title, language, str(linecount-1)))
+    return data
 
-datafile = open("C:\VINF\data\enwiktionary-20220920-pages-articles-multistream.xml", 'r', encoding="utf8")
 inPage = 0
 page = 0
 titlefound = 0
@@ -15,7 +24,19 @@ capitalLetter = re.compile("[A-Z]")
 dictionaryPattern = re.compile("^[*]:? [A-Z][a-z]+ ?[A-Z]?[a-z]*: {{")
 transPattern = re.compile("(?<=\|[a-z]{2}\|)([^{},|]*)(?=(\|[a-z])|(}}))")
 
-linecount = 0
+datafile = open("/home/enwiktionary-20220920-pages-articles-multistream.xml", 'r')
+#enwiktionary-20220920-pages-articles-multistream
+spark = SparkSession\
+        .builder\
+        .appName("PythonPi")\
+        .getOrCreate()
+
+data = spark.sparkContext.parallelize(enumerate(datafile), 10).map(f).reduce(add)
+
+inPage = 0
+page = 0
+datafile = open("/home/enwiktionary-20220920-pages-articles-multistream.xml", 'r')
+print("halo")
 for line in datafile:
     if inPage and page > 4:
         if pageEnd.findall(line): inPage = 0
@@ -28,20 +49,10 @@ for line in datafile:
             if title:
                 language = re.search("(?<===)(.*)(?===)",line).group()
                 if '=' not in language: 
-                    data.add((title, re.search("(?<===)(.*)(?===)",line).group(), str(saveline)))
-        elif dictionaryPattern.findall(line):
-            language = re.search("[A-Z][a-z]+ ?[A-Z]?[a-z]*",line).group()
-            titles = re.findall("(?<=\|[a-z]{2}\|)[^{},|]+(?=[\|}])",line, re.DOTALL)
-            for title in titles:
-                data.add((title, language, str(saveline)))
-    if pageStart.findall(line):
-        page+=1
-        if page%5000 == 0: 
-            print(page)
-        inPage = 1
-    linecount+=1
+                    data.append((title, re.search("(?<===)(.*)(?===)",line).group(), str(saveline)))
+    if pageStart.findall(line): inPage = 1
 
 df = pd.DataFrame(data, columns=['Word', 'Language', 'Locations'])
-df.to_csv("C:\VINF\index.csv", index=False)
+df.to_csv("/home/index.csv", index=False)
 
-    
+

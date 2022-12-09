@@ -2,7 +2,7 @@ import pandas as pd
 from difflib import SequenceMatcher
 import re
 
-index = pd.read_csv("C:\VINF\index.csv")
+index = pd.read_csv("/home/index.csv")
 
 def searching(inp):
     
@@ -41,14 +41,36 @@ def searching(inp):
 
     # Prerekvizity hotove, nasleduje search
     # Z prerekvizit mame slovo, jazyk a strany, kde sa nachadza
-
-    dataFile = open("C:\VINF\data\enwiktionary-20220920-pages-articles-multistream.xml", 'r', encoding="utf8")
+    
+    dataFile = open("/home/enwiktionary-20220920-pages-articles-multistream.xml", 'r', encoding="utf8")
+    linecount = 0
     page = 0
     inPage = False
     results = []
     numOfPages = 0
     pageEnd = re.compile("</page>")
+    pageStart = re.compile("<page>")
+    for line in dataFile:
+        if linecount > findPages[numOfPages] - 3000:
+            inPage = True
+        if inPage:
+            if pageStart.findall(line):
+                temppage = linecount
+            if (searchRes["Word"].values[numOfPages] in line) and (language in line):
+                findPages[numOfPages] = temppage
+                inPage = False
+                numOfPages += 1
+                if numOfPages == len(findPages):
+                    break
+        linecount+=1
+
+    findPages = list(dict.fromkeys(findPages))
+    numOfPages = 0
+    dataFile = open("/home/enwiktionary-20220920-pages-articles-multistream.xml", 'r', encoding="utf8")
     linecount = 0
+    page = 0
+    numOfPages = 0
+    inPage = False
     for line in dataFile:
         if linecount == findPages[numOfPages]:
             inPage = True
@@ -74,6 +96,7 @@ def searching(inp):
         print("\nDo you mean?\n--------------------------")
         for i in range(len(results)):
             print(str(i+1) + ") " + ogtranslations[i] + "  -  " + oglanguages[i])
+        print("--------------------------")
         try:
             chosen = int(input())
         except:
@@ -82,6 +105,7 @@ def searching(inp):
         if (chosen < 1) or (chosen > len(results)):
             print("Invalid number chosen")
             return 0 
+        else: chosen -= 1
     else:
         chosen = 0 
         print("Found page: "  + ogtranslations[0] + "  -  " + oglanguages[0])
@@ -95,7 +119,7 @@ def searching(inp):
         print(re.search(".*(?=\/)",ogtranslations[chosen]).group())
         return searching(re.search(".*(?=\/)",ogtranslations[chosen]).group())
     else:
-        for line in results[chosen-1].splitlines():
+        for line in results[chosen].splitlines():
             if line:
                 if inPage:
                     if re.compile("==").findall(line):
